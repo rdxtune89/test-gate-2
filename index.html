@@ -5,30 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>🔐 Thronedis Gate — ขอบคุณ Holder | Multi‑Wallet (IDs 0–10)</title>
 
-  <!-- Ethers -->
+  <!-- Ethers & Web3Modal -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <!-- Web3Modal (WalletConnect v2) -->
   <script src="https://unpkg.com/@web3modal/standalone@2.7.2/dist/index.umd.js"></script>
 
   <style>
-    :root { --bg:#0b0f14; --panel:#0f172a; --muted:#93a3b8; --brand:#2563eb; --ok:#16a34a; --bad:#ef4444; }
-    * { box-sizing:border-box }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:#e9f0f4; margin:0; padding:24px; }
-    a { color:#67e8f9; font-weight:600; text-decoration:none }
-    .wrap { max-width:880px; margin:0 auto; }
-    .card { background:var(--panel); border:1px solid #1f2937; border-radius:14px; padding:18px; margin-top:20px; }
-    .muted { color:var(--muted); }
-    code { background:#111827; padding:2px 6px; border-radius:6px }
-    .btn-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
-    button { padding:10px 16px; border-radius:10px; border:0; cursor:pointer; background:var(--brand); color:white }
-    .btn-secondary { background:#334155; }
-    .btn-danger { background:#ef4444; }
-    .thanks { text-align:center; background:#0f172a; border:1px solid #1f2937; border-radius:12px; padding:12px; margin-bottom:14px; }
-    .badge { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; }
-    .ok { background:rgba(22,163,74,.15); color:#86efac; }
-    .bad { background:rgba(239,68,68,.15); color:#fecaca; }
-    .warn{ background:rgba(234,179,8,.15); color:#fde68a; }
-    #secret { display:none; }
+    :root{--bg:#0b0f14;--panel:#0f172a;--muted:#93a3b8;--brand:#2563eb}
+    *{box-sizing:border-box}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:#e9f0f4;margin:0;padding:24px}
+    a{color:#67e8f9;font-weight:600;text-decoration:none}
+    .wrap{max-width:880px;margin:0 auto}
+    .card{background:#0f172a;border:1px solid #1f2937;border-radius:14px;padding:18px;margin-top:20px}
+    .muted{color:var(--muted)} code{background:#111827;padding:2px 6px;border-radius:6px}
+    .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+    button{padding:10px 16px;border-radius:10px;border:0;cursor:pointer;background:var(--brand);color:#fff}
+    .btn-secondary{background:#334155}.btn-danger{background:#ef4444}
+    .thanks{text-align:center;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-bottom:14px}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
+    .ok{background:rgba(22,163,74,.15);color:#86efac}.bad{background:rgba(239,68,68,.15);color:#fecaca}.warn{background:rgba(234,179,8,.15);color:#fde68a}
+    #secret{display:none}
   </style>
 </head>
 <body>
@@ -36,13 +31,10 @@
   <div class="thanks">💖 ขอบคุณ <b>Holder</b> ทุกท่านที่สนับสนุนโปรเจกต์นี้! 💖</div>
 
   <h2>🔐 Thronedis – Token Gated (เพิ่ม/สลับหลายกระเป๋า)</h2>
-  <div class="muted">
-    Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code> · Allowed IDs: <code>0–10</code>
-  </div>
+  <div class="muted">Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code> · Allowed IDs: <code>0–10</code></div>
 
-  <!-- Status -->
-  <div class="card" id="status">
-    <div><b>Status:</b> <span id="status-text" class="badge warn">Not connected</span></div>
+  <div class="card">
+    <b>Status:</b> <span id="status-text" class="badge warn">Not connected</span>
     <div class="muted" style="margin-top:6px">
       <div>Address: <code id="s-addr">–</code></div>
       <div>Chain: <code id="s-chain">–</code></div>
@@ -53,168 +45,135 @@
   </div>
 
   <div id="locked" class="card">
-    <p>ต้องถือ NFT ที่ <strong>Token ID 0–10</strong> ในคอลเล็กชันนี้จึงจะปลดล็อกได้</p>
+    <p>ต้องถือ NFT ที่ <strong>Token ID 0–10</strong> จึงจะปลดล็อกได้</p>
     <div class="btn-row">
       <button id="btn-universal">👜 Connect / Add Wallet (Universal)</button>
       <button id="btn-metamask" class="btn-secondary">🦊 Add MetaMask (Desktop)</button>
-      <a id="btn-mm-app" class="btn-secondary" style="display:inline-block; padding:10px 16px; border-radius:10px; background:#475569; color:white" target="_blank" rel="noopener">
-        📲 Open in MetaMask App
-      </a>
+      <a id="btn-mm-app" class="btn-secondary" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#475569;color:#fff" target="_blank" rel="noopener">📲 Open in MetaMask App</a>
       <button id="btn-clear" class="btn-danger">🧹 Clear Connected</button>
     </div>
-    <p class="muted" style="margin-top:10px;">กด “Universal” เพื่อเชื่อมวอลเล็ตผ่าน WalletConnect (มือถือ/เดสก์ท็อป)</p>
+    <p class="muted" style="margin-top:10px;">Universal จะใช้ MetaMask/Injected ถ้ามี → ไม่มีก็ค่อยเปิด WalletConnect</p>
   </div>
 
   <div id="secret" class="card">
     <h3>🎉 เข้าถึงได้แล้ว</h3>
     <p>ขอบคุณ Holder อีกครั้งสำหรับการสนับสนุน 💖</p>
-    <!-- Test Link ที่คุณขอ (web3.storage gateway) -->
     <p><a href="https://bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu.ipfs.w3s.link" target="_blank">👉 Test Link (IPFS)</a></p>
-    <!-- สำรองผ่าน ipfs.io -->
     <p class="muted">สำรอง: <a href="https://ipfs.io/ipfs/bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu" target="_blank">ipfs.io gateway</a></p>
   </div>
 </div>
 
 <script>
   // ===== CONFIG =====
-  const CONTRACT_ADDRESS = "0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
-  const NETWORK_HEX = "0x89"; // Polygon Mainnet
-  const TOKEN_IDS = ["0","1","2","3","4","5","6","7","8","9","10"];
-  const WALLETCONNECT_PROJECT_ID = "ba3a040708c3e27acefb4eb4b3c5d9a8";
+  const CONTRACT_ADDRESS="0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
+  const NETWORK_HEX="0x89"; // Polygon
+  const TOKEN_IDS=["0","1","2","3","4","5","6","7","8","9","10"];
+  const WALLETCONNECT_PROJECT_ID="ba3a040708c3e27acefb4eb4b3c5d9a8";
   // ===================
 
-  const IID_ERC721  = "0x80ac58cd";
-  const IID_ERC1155 = "0xd9b67a26";
-  const ABI_ERC165  = ["function supportsInterface(bytes4 interfaceId) view returns (bool)"];
-  const ABI_ERC721  = ["function ownerOf(uint256 tokenId) view returns (address)"];
-  const ABI_ERC1155 = ["function balanceOf(address account, uint256 id) view returns (uint256)"];
+  const IID_ERC721="0x80ac58cd", IID_ERC1155="0xd9b67a26";
+  const ABI_ERC165=["function supportsInterface(bytes4) view returns (bool)"];
+  const ABI_ERC721=["function ownerOf(uint256) view returns (address)"];
+  const ABI_ERC1155=["function balanceOf(address,uint256) view returns (uint256)"];
 
-  // UI helpers
-  const sText = document.getElementById("status-text");
-  const sAddr = document.getElementById("s-addr");
-  const sChain= document.getElementById("s-chain");
-  const sStd  = document.getElementById("s-std");
-  const sHit  = document.getElementById("s-hit");
-  const sErr  = document.getElementById("s-err");
-  const secret= document.getElementById("secret");
-  const locked= document.getElementById("locked");
+  const sText=document.getElementById("status-text");
+  const sAddr=document.getElementById("s-addr");
+  const sChain=document.getElementById("s-chain");
+  const sStd=document.getElementById("s-std");
+  const sHit=document.getElementById("s-hit");
+  const sErr=document.getElementById("s-err");
+  const secret=document.getElementById("secret");
+  const locked=document.getElementById("locked");
 
-  function setStatus(kind, text) {
-    sText.className = "badge " + (kind==="ok"?"ok": kind==="bad"?"bad":"warn");
-    sText.textContent = text;
-  }
+  function setStatus(kind,text){ sText.className="badge "+(kind==="ok"?"ok":kind==="bad"?"bad":"warn"); sText.textContent=text; }
 
-  // Deep link (MetaMask mobile)
+  // MetaMask mobile deeplink
   const currentUrl = location.href.replace(/^https?:\/\//,'').replace(/\/+/g,'/');
-  document.getElementById("btn-mm-app").href = "https://metamask.app.link/dapp/" + currentUrl;
+  document.getElementById("btn-mm-app").href = "https://metamask.app.link/dapp/"+currentUrl;
 
-  async function ensurePolygon(provider) {
-    const chainId = await provider.request({ method: "eth_chainId" });
-    sChain.textContent = chainId;
-    if (chainId !== NETWORK_HEX) {
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: NETWORK_HEX }]
-      });
-      sChain.textContent = NETWORK_HEX;
+  async function ensurePolygon(provider){
+    const chainId=await provider.request({method:"eth_chainId"});
+    sChain.textContent=chainId;
+    if(chainId!==NETWORK_HEX){
+      await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:NETWORK_HEX}]});
+      sChain.textContent=NETWORK_HEX;
     }
   }
-
-  async function detectStandard(provider) {
-    const web3p = new ethers.providers.Web3Provider(provider);
-    const c165 = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC165, web3p);
-    try {
-      const is721  = await c165.supportsInterface(IID_ERC721);
-      const is1155 = await c165.supportsInterface(IID_ERC1155);
-      if (is1155) return "ERC1155";
-      if (is721)  return "ERC721";
-    } catch(e) {}
+  async function detectStandard(provider){
+    const web3p=new ethers.providers.Web3Provider(provider);
+    const c165=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC165,web3p);
+    try{
+      const is721=await c165.supportsInterface(IID_ERC721);
+      const is1155=await c165.supportsInterface(IID_ERC1155);
+      if(is1155) return "ERC1155";
+      if(is721)  return "ERC721";
+    }catch(e){}
     return "ERC721";
   }
-
-  async function verifyWithProvider(provider, sourceName) {
-    try {
+  async function verifyWithProvider(provider, source){
+    try{
       setStatus("warn","Checking…");
       await ensurePolygon(provider);
-      const accounts = await provider.request({ method: "eth_requestAccounts" });
-      const account = accounts[0];
-      sAddr.textContent = account;
+      const [account]=await provider.request({method:"eth_requestAccounts"});
+      sAddr.textContent=account;
 
-      const web3p = new ethers.providers.Web3Provider(provider);
-      const signer = web3p.getSigner();
-      const standard = await detectStandard(provider);
-      sStd.textContent = standard;
+      const web3p=new ethers.providers.Web3Provider(provider);
+      const signer=web3p.getSigner();
+      const standard=await detectStandard(provider);
+      sStd.textContent=standard;
 
-      let hasAccess = false;
-      let hit = null;
-
-      if (standard === "ERC721") {
-        const c = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC721, signer);
-        for (const id of TOKEN_IDS) {
-          try {
-            const owner = await c.ownerOf(id);
-            if (owner && owner.toLowerCase() === account.toLowerCase()) { hasAccess = true; hit = id; break; }
-          } catch(_) {} // id ยังไม่ mint
+      let ok=false, hit=null;
+      if(standard==="ERC721"){
+        const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC721,signer);
+        for(const id of TOKEN_IDS){
+          try{ const owner=await c.ownerOf(id);
+            if(owner && owner.toLowerCase()===account.toLowerCase()){ ok=true; hit=id; break; }
+          }catch(_){}
         }
-      } else {
-        const c = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC1155, signer);
-        for (const id of TOKEN_IDS) {
-          try {
-            const bal = await c.balanceOf(account, id);
-            if (bal && ethers.BigNumber.from(bal).gt(0)) { hasAccess = true; hit = id; break; }
-          } catch(_) {}
+      }else{
+        const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC1155,signer);
+        for(const id of TOKEN_IDS){
+          try{ const bal=await c.balanceOf(account,id);
+            if(bal && ethers.BigNumber.from(bal).gt(0)){ ok=true; hit=id; break; }
+          }catch(_){}
         }
       }
-
       sHit.textContent = hit ?? "–";
-      if (hasAccess) {
-        setStatus("ok","Unlocked");
-        locked.style.display = "none";
-        secret.style.display = "block";
-      } else {
-        setStatus("bad","No access");
-        locked.style.display = "block";
-        secret.style.display = "none";
-        alert("❌ ยังไม่มีสิทธิ์ (ต้องถือ Token ID 0–10)");
-      }
-    } catch (err) {
-      console.error(err);
-      sErr.textContent = (err && err.message) ? err.message : String(err);
-      setStatus("bad","Error");
-      alert("เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์ ดูรายละเอียดใน Status");
-    }
+      if(ok){ setStatus("ok","Unlocked"); locked.style.display="none"; secret.style.display="block"; }
+      else  { setStatus("bad","No access"); locked.style.display="block"; secret.style.display="none"; alert("❌ ต้องถือ Token ID 0–10"); }
+    }catch(err){ sErr.textContent=(err&&err.message)?err.message:String(err); setStatus("bad","Error"); alert("ตรวจสอบสิทธิ์ผิดพลาด"); }
   }
 
-  // MetaMask (Desktop)
-  document.getElementById("btn-metamask").addEventListener("click", async () => {
-    if (!window.ethereum) { alert("ไม่พบ MetaMask (ลองปุ่ม Universal หรือเปิดด้วย MetaMask App)"); return; }
-    await verifyWithProvider(window.ethereum, "MetaMask");
+  // ปุ่ม MetaMask (Injected)
+  document.getElementById("btn-metamask").addEventListener("click", async ()=>{
+    if(!window.ethereum){ alert("ไม่พบ MetaMask (ลองปุ่ม Universal หรือเปิดด้วย MetaMask App)"); return; }
+    await verifyWithProvider(window.ethereum,"MetaMask");
   });
 
-  // Web3Modal (WalletConnect v2) — Universal button
-  const w3m = window.Web3ModalStandalone;
-  let modal = null;
-  function ensureWeb3Modal() {
-    if (!modal) {
-      modal = w3m.default({
-        projectId: WALLETCONNECT_PROJECT_ID,
-        themeMode: "dark",
-        walletConnectVersion: 2
-      });
+  // ปุ่ม Universal (smart)
+  const w3m=window.Web3ModalStandalone; let modal=null;
+  function ensureW3M(){ if(!modal){ modal=w3m.default({projectId:WALLETCONNECT_PROJECT_ID,themeMode:"dark",walletConnectVersion:2}); } return modal; }
+
+  document.getElementById("btn-universal").addEventListener("click", async ()=>{
+    // 1) ถ้ามี injected (รวมถึง MetaMask ในแอปมือถือ) ใช้อันนี้ก่อน
+    if(window.ethereum){ await verifyWithProvider(window.ethereum,"Injected"); return; }
+    // 2) ไม่มี → WalletConnect
+    try{
+      const m=ensureW3M();
+      const provider=await m.connect();
+      await verifyWithProvider(provider,"WalletConnect");
+    }catch(e){
+      // 3) มือถือ ไม่มี wallet → deeplink ไป MetaMask app
+      const isMobile=/android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      if(isMobile){ location.href="https://metamask.app.link/dapp/"+currentUrl; }
     }
-    return modal;
-  }
-  document.getElementById("btn-universal").addEventListener("click", async () => {
-    const m = ensureWeb3Modal();
-    const provider = await m.connect();
-    await verifyWithProvider(provider, "WalletConnect");
   });
 
-  // Clear UI
-  document.getElementById("btn-clear").addEventListener("click", () => {
-    sAddr.textContent = "–"; sChain.textContent="–"; sStd.textContent="–";
+  // ล้างหน้าจอ
+  document.getElementById("btn-clear").addEventListener("click", ()=>{
+    sAddr.textContent="–"; sChain.textContent="–"; sStd.textContent="–";
     sHit.textContent="–"; sErr.textContent="–"; setStatus("warn","Not connected");
-    locked.style.display = "block"; secret.style.display = "none";
+    locked.style.display="block"; secret.style.display="none";
   });
 </script>
 </body>
