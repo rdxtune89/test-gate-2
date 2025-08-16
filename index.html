@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Thronedis – Collection Gate (Multi‑Wallet)</title>
+
+  <!-- Ethers -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <!-- Web3Modal (WalletConnect v2) Standalone UMD -->
+  <script src="https://unpkg.com/@web3modal/standalone@2.7.2/dist/index.umd.js"></script>
+
+  <style>
+    :root { --bg:#0b0f14; --panel:#0f172a; --muted:#93a3b8; --brand:#2563eb; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:#e9f0f4; padding:32px; }
+    h2 { margin: 0 0 8px }
+    a { color:#67e8f9; font-weight:600; text-decoration:none }
+    .card { background:var(--panel); border:1px solid #1f2937; border-radius:14px; padding:18px; margin-top:20px; }
+    #secret { display:none; }
+    #locked { margin-top:16px; }
+    button { padding:10px 16px; border-radius:10px; border:0; cursor:pointer; background:var(--brand); color:white }
+    .muted { color:var(--muted); }
+    code { background:#111827; padding:2px 6px; border-radius:6px }
+    .btn-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
+    .btn-secondary { background:#334155; }
+  </style>
+</head>
+<body>
+  <h2>🔐 Thronedis – Token Gated (Any token in collection)</h2>
+  <div class="muted">Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code></div>
+
+  <div id="locked" class="card">
+    <p>คุณต้องถือ NFT จากคอลเล็กชันนี้ (ชิ้นใดก็ได้) เพื่อเข้าถึงไฟล์</p>
+    <div class="btn-row">
+      <button id="connect-web3modal">👜 Connect (Web3Modal)</button>
+      <button id="connect-metamask" class="btn-secondary">🦊 MetaMask (Desktop)</button>
+      <a id="open-mm-deeplink" class="btn-secondary" style="display:inline-block; padding:10px 16px; border-radius:10px; background:#475569; color:white" target="_blank" rel="noopener">
+        📲 Open in MetaMask App
+      </a>
+    </div>
+    <p class="muted" style="margin-top:10px;">หากคอลเล็กชันเป็น ERC‑1155 และต้องการให้หลาย tokenId ปลดล็อกได้ ให้ตั้งค่า <code>TOKEN_IDS</code> ในไฟล์นี้</p>
+  </div>
+
+  <div id="secret" class="card">
+    <h3>🎉 คุณมีสิทธิ์เข้าถึงแล้ว</h3>
+    <p><a href="https://ipfs.io/ipfs/bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu" target="_blank">📂 ดาวน์โหลดไฟล์จาก IPFS</a></p>
+    <p class="muted">หมายเหตุ: IPFS เป็น public; ใครได้ลิงก์นี้สามารถเปิดได้ หากต้องการความปลอดภัยสูง แนะนำทำ one‑time link ผ่าน backend</p>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const CONTRACT_ADDRESS = "0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
+    const NETWORK_HEX = "0x89"; // Polygon Mainnet
+    const TOKEN_IDS = []; // เฉพาะ ERC-1155: เช่น ["0","1","2"]
+    const WALLETCONNECT_PROJECT_ID = "ba3a040708c3e27acefb4eb4b3c5d9a8";
+    // ===================
+
+    // ERC-165 interface ids
+    const IID_ERC721  = "0x80ac58cd";
+    const IID_ERC1155 = "0xd9b67a26";
+
+    // Minimal ABIs
+    const ABI_ERC165  = ["function supportsInterface(bytes4 interfaceId) view returns (bool)"];
+    const ABI_ERC721  = ["function balanceOf(address owner) view returns (uint256)"];
+    const ABI_ERC1155 = ["function balanceOf(address account, uint256 id) view returns (uint256)"];
+
+    // Deep link สำหรับเปิดเว็บนี้ใน MetaMask Mobile
+    const currentUrl = location.href;
+    document.getElementById("open-mm-deeplink").href = "https://metamask.app.link/dapp/" + currentUrl.replace(/^https?:\/\//,'').replace(/\/+/g,'/');
+
+    async function ensurePolygon(provider) {
+      const chainId = await provider.request({ method: "eth_chainId" });
+      if (chainId !== NETWORK_HEX) {
+        await provider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: NETWORK_HEX }]
+        });
+      }
+    }
+
+    async function detectStandard(provider) {
+      const c165 = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC165, new ethers.providers.Web3Provider(provider));
+      try {
+        const is721  = await c165.supportsInterface(IID_ERC721);
+        const is1155 = await c165.supportsInterface(IID_ERC1155);
+        if (is1155) return "ERC1155";
+        if (is721)  return "ERC721";
+      } catch {}
+      return "ERC721"; // fallback
+    }
+
+    async function verifyWithProvider(provider) {
+      await ensurePolygon(provider);
+      const accounts = await provider.request({ method: "eth_requestAccounts" });
+      const account = accounts[0];
+
+      const web3p = new ethers.providers.Web3Provider(provider);
+      const signer = web3p.getSigner();
+      const standard = await detectStandard(provider);
+
+      let hasAccess = false;
+      if (standard === "ERC721") {
+        const c = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC721, signer);
+        const bal = await c.balanceOf(account);
+        hasAccess = bal && ethers.BigNumber.from(bal).gt(0);
+      } else {
+        if (!TOKEN_IDS.length) {
+          alert("คอลเล็กชันนี้เป็น ERC-1155: โปรดกำหนด TOKEN_IDS หรือทำตรวจสิทธิ์ผ่าน backend เพื่อรองรับทุกไอดี");
+        } else {
+          const c = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC1155, signer);
+          for (const id of TOKEN_IDS) {
+            const bal = await c.balanceOf(account, id);
+            if (bal && ethers.BigNumber.from(bal).gt(0)) { hasAccess = true; break; }
+          }
+        }
+      }
+      document.getElementById("locked").style.display = hasAccess ? "none" : "block";
+      document.getElementById("secret").style.display = hasAccess ? "block" : "none";
+      if (!hasAccess) alert("❌ ยังไม่มีสิทธิ์เข้าถึง");
+    }
+
+    // --- MetaMask button (desktop/injected) ---
+    document.getElementById("connect-metamask").addEventListener("click", async () => {
+      if (!window.ethereum) { alert("ไม่พบ MetaMask (ลองปุ่ม Web3Modal หรือเปิดด้วย MetaMask App)"); return; }
+      await verifyWithProvider(window.ethereum);
+    });
+
+    // --- Web3Modal (WalletConnect v2) ---
+    const w3m = window.Web3ModalStandalone;
+    let modal = null;
+
+    function ensureWeb3Modal() {
+      if (!WALLETCONNECT_PROJECT_ID) return null;
+      if (!modal) {
+        modal = w3m.default({
+          projectId: WALLETCONNECT_PROJECT_ID,
+          themeMode: "dark",
+          walletConnectVersion: 2
+        });
+      }
+      return modal;
+    }
+
+    document.getElementById("connect-web3modal").addEventListener("click", async () => {
+      const m = ensureWeb3Modal();
+      if (!m) { alert("Web3Modal ยังไม่ได้ตั้งค่า projectId"); return; }
+      const provider = await m.connect();
+      await verifyWithProvider(provider);
+    });
+  </script>
+</body>
+</html>
