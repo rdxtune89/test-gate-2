@@ -20,8 +20,7 @@
     code{background:#111827;padding:2px 6px;border-radius:6px}
     .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
     button,.btn-link{padding:10px 16px;border-radius:10px;border:0;cursor:pointer;background:var(--brand);color:#fff;display:inline-block;text-decoration:none}
-    .btn-secondary{background:#334155}
-    .btn-danger{background:#ef4444}
+    .btn-secondary{background:#334155}.btn-danger{background:#ef4444}
     .thanks{text-align:center;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-bottom:14px}
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
     .ok{background:rgba(22,163,74,.15);color:#86efac}
@@ -51,13 +50,12 @@
   <div id="locked" class="card">
     <p>ต้องถือ NFT ที่ <strong>Token ID 0–10</strong> จึงจะปลดล็อกได้</p>
     <div class="btn-row">
-      <button id="btn-universal">👜 Connect / Add Wallet (Universal)</button>
-      <button id="btn-metamask" class="btn-secondary">🦊 Add MetaMask (Desktop)</button>
-      <!-- ปุ่มลิงก์เปิด MetaMask App โดยตรง -->
+      <button id="btn-injected">🦊 Connect MetaMask (Injected)</button>
+      <button id="btn-universal" class="btn-secondary">👜 Connect / Add Wallet (Universal)</button>
       <a id="btn-mm-app" class="btn-link btn-secondary" target="_blank" rel="noopener">📲 Open in MetaMask App</a>
       <button id="btn-clear" class="btn-danger">🧹 Clear Connected</button>
     </div>
-    <p class="muted" style="margin-top:10px;">Universal จะใช้ MetaMask/Injected ถ้ามี → ไม่มีก็ค่อยเปิด WalletConnect → ถ้าอยู่มือถือและยังไม่มี จะดีปลิงก์เข้าแอป MetaMask ให้</p>
+    <p class="muted" style="margin-top:10px;">Injected จะใช้ MetaMask/เบราว์เซอร์ที่มี provider → ถ้าไม่มีให้ใช้ Universal/MetaMask App</p>
   </div>
 
   <div id="secret" class="card">
@@ -98,12 +96,34 @@
     sText.textContent=text;
   }
 
+  async function addPolygon(provider){
+    // Add Polygon if missing (Metamask error 4902)
+    await provider.request({ method: "wallet_addEthereumChain", params: [{
+      chainId: NETWORK_HEX,
+      chainName: "Polygon Mainnet",
+      nativeCurrency: { name: "MATIC", symbol: "MATIC", decimals: 18 },
+      rpcUrls: ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon"],
+      blockExplorerUrls: ["https://polygonscan.com"]
+    }]});
+  }
+
   async function ensurePolygon(provider){
-    const chainId=await provider.request({method:"eth_chainId"});
-    sChain.textContent=chainId;
-    if(chainId!==NETWORK_HEX){
-      await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:NETWORK_HEX}]}).catch(()=>{});
-      sChain.textContent=NETWORK_HEX;
+    let chainId = await provider.request({ method: "eth_chainId" });
+    sChain.textContent = chainId;
+    if (chainId !== NETWORK_HEX) {
+      try {
+        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK_HEX }] });
+      } catch (err) {
+        // 4902 = chain not added
+        if (err && (err.code === 4902 || err.message?.includes("4902"))) {
+          await addPolygon(provider);
+          await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK_HEX }] });
+        } else {
+          throw err;
+        }
+      }
+      chainId = await provider.request({ method: "eth_chainId" });
+      sChain.textContent = chainId;
     }
   }
 
@@ -135,45 +155,33 @@
       if(standard==="ERC721"){
         const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC721,signer);
         for(const id of TOKEN_IDS){
-          try{
-            const owner=await c.ownerOf(id);
+          try{ const owner=await c.ownerOf(id);
             if(owner && owner.toLowerCase()===account.toLowerCase()){ ok=true; hit=id; break; }
           }catch(_){}
         }
       }else{
         const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC1155,signer);
         for(const id of TOKEN_IDS){
-          try{
-            const bal=await c.balanceOf(account,id);
+          try{ const bal=await c.balanceOf(account,id);
             if(bal && ethers.BigNumber.from(bal).gt(0)){ ok=true; hit=id; break; }
           }catch(_){}
         }
       }
-
-      sHit.textContent=hit ?? "–";
+      sHit.textContent = hit ?? "–";
       if(ok){ setStatus("ok","Unlocked"); locked.style.display="none"; secret.style.display="block"; }
       else  { setStatus("bad","No access"); locked.style.display="block"; secret.style.display="none"; alert("❌ ต้องถือ Token ID 0–10"); }
-    }catch(err){
-      sErr.textContent=(err&&err.message)?err.message:String(err);
-      setStatus("bad","Error");
-      alert("ตรวจสอบสิทธิ์ผิดพลาด");
-    }
+    }catch(err){ sErr.textContent=(err&&err.message)?err.message:String(err); setStatus("bad","Error"); alert("ตรวจสอบสิทธิ์ผิดพลาด"); }
   }
 
-  // MetaMask (Injected)
-  document.getElementById("btn-metamask").addEventListener("click", async ()=>{
-    if(!window.ethereum){ alert("ไม่พบ MetaMask (ลองปุ่ม Universal หรือเปิดด้วย MetaMask App)"); return; }
-    await verifyWithProvider(window.ethereum,"MetaMask");
+  // ปุ่ม Injected (MetaMask/Browser provider)
+  document.getElementById("btn-injected").addEventListener("click", async ()=>{
+    if(!window.ethereum){ alert("ไม่พบ provider ที่ถูก inject (ลอง Universal หรือเปิดด้วย MetaMask App)"); return; }
+    await verifyWithProvider(window.ethereum,"Injected");
   });
 
   // Universal: Injected -> WalletConnect -> Deeplink
   const w3m=window.Web3ModalStandalone; let modal=null;
-  function ensureW3M(){
-    if(!modal){
-      modal=w3m.default({ projectId:WALLETCONNECT_PROJECT_ID, themeMode:"dark", walletConnectVersion:2 });
-    }
-    return modal;
-  }
+  function ensureW3M(){ if(!modal){ modal=w3m.default({ projectId:WALLETCONNECT_PROJECT_ID, themeMode:"dark", walletConnectVersion:2 }); } return modal; }
 
   document.getElementById("btn-universal").addEventListener("click", async ()=>{
     if(window.ethereum){ await verifyWithProvider(window.ethereum,"Injected"); return; }
@@ -184,6 +192,14 @@
     }catch(e){
       const isMobile=/android|iphone|ipad|ipod/i.test(navigator.userAgent);
       if(isMobile){ location.href="https://metamask.app.link/dapp/"+currentUrl; }
+    }
+  });
+
+  // Auto-connect on load if injected exists (for in-app MetaMask browser)
+  window.addEventListener("load", ()=>{
+    if(window.ethereum){
+      // ไม่บังคับ popup ทันที แค่แสดงว่ามี provider
+      setStatus("warn","Provider detected – tap Connect");
     }
   });
 
