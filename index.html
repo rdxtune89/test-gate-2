@@ -16,13 +16,17 @@
     a{color:#67e8f9;font-weight:600;text-decoration:none}
     .wrap{max-width:880px;margin:0 auto}
     .card{background:#0f172a;border:1px solid #1f2937;border-radius:14px;padding:18px;margin-top:20px}
-    .muted{color:var(--muted)} code{background:#111827;padding:2px 6px;border-radius:6px}
+    .muted{color:var(--muted)}
+    code{background:#111827;padding:2px 6px;border-radius:6px}
     .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-    button{padding:10px 16px;border-radius:10px;border:0;cursor:pointer;background:var(--brand);color:#fff}
-    .btn-secondary{background:#334155}.btn-danger{background:#ef4444}
+    button,.btn-link{padding:10px 16px;border-radius:10px;border:0;cursor:pointer;background:var(--brand);color:#fff;display:inline-block;text-decoration:none}
+    .btn-secondary{background:#334155}
+    .btn-danger{background:#ef4444}
     .thanks{text-align:center;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-bottom:14px}
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
-    .ok{background:rgba(22,163,74,.15);color:#86efac}.bad{background:rgba(239,68,68,.15);color:#fecaca}.warn{background:rgba(234,179,8,.15);color:#fde68a}
+    .ok{background:rgba(22,163,74,.15);color:#86efac}
+    .bad{background:rgba(239,68,68,.15);color:#fecaca}
+    .warn{background:rgba(234,179,8,.15);color:#fde68a}
     #secret{display:none}
   </style>
 </head>
@@ -49,10 +53,11 @@
     <div class="btn-row">
       <button id="btn-universal">👜 Connect / Add Wallet (Universal)</button>
       <button id="btn-metamask" class="btn-secondary">🦊 Add MetaMask (Desktop)</button>
-      <a id="btn-mm-app" class="btn-secondary" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#475569;color:#fff" target="_blank" rel="noopener">📲 Open in MetaMask App</a>
+      <!-- ปุ่มลิงก์เปิด MetaMask App โดยตรง -->
+      <a id="btn-mm-app" class="btn-link btn-secondary" target="_blank" rel="noopener">📲 Open in MetaMask App</a>
       <button id="btn-clear" class="btn-danger">🧹 Clear Connected</button>
     </div>
-    <p class="muted" style="margin-top:10px;">Universal จะใช้ MetaMask/Injected ถ้ามี → ไม่มีก็ค่อยเปิด WalletConnect</p>
+    <p class="muted" style="margin-top:10px;">Universal จะใช้ MetaMask/Injected ถ้ามี → ไม่มีก็ค่อยเปิด WalletConnect → ถ้าอยู่มือถือและยังไม่มี จะดีปลิงก์เข้าแอป MetaMask ให้</p>
   </div>
 
   <div id="secret" class="card">
@@ -85,20 +90,23 @@
   const secret=document.getElementById("secret");
   const locked=document.getElementById("locked");
 
-  function setStatus(kind,text){ sText.className="badge "+(kind==="ok"?"ok":kind==="bad"?"bad":"warn"); sText.textContent=text; }
-
-  // MetaMask mobile deeplink
   const currentUrl = location.href.replace(/^https?:\/\//,'').replace(/\/+/g,'/');
   document.getElementById("btn-mm-app").href = "https://metamask.app.link/dapp/"+currentUrl;
+
+  function setStatus(kind,text){
+    sText.className="badge "+(kind==="ok"?"ok":kind==="bad"?"bad":"warn");
+    sText.textContent=text;
+  }
 
   async function ensurePolygon(provider){
     const chainId=await provider.request({method:"eth_chainId"});
     sChain.textContent=chainId;
     if(chainId!==NETWORK_HEX){
-      await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:NETWORK_HEX}]});
+      await provider.request({method:"wallet_switchEthereumChain",params:[{chainId:NETWORK_HEX}]}).catch(()=>{});
       sChain.textContent=NETWORK_HEX;
     }
   }
+
   async function detectStandard(provider){
     const web3p=new ethers.providers.Web3Provider(provider);
     const c165=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC165,web3p);
@@ -110,6 +118,7 @@
     }catch(e){}
     return "ERC721";
   }
+
   async function verifyWithProvider(provider, source){
     try{
       setStatus("warn","Checking…");
@@ -126,50 +135,59 @@
       if(standard==="ERC721"){
         const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC721,signer);
         for(const id of TOKEN_IDS){
-          try{ const owner=await c.ownerOf(id);
+          try{
+            const owner=await c.ownerOf(id);
             if(owner && owner.toLowerCase()===account.toLowerCase()){ ok=true; hit=id; break; }
           }catch(_){}
         }
       }else{
         const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC1155,signer);
         for(const id of TOKEN_IDS){
-          try{ const bal=await c.balanceOf(account,id);
+          try{
+            const bal=await c.balanceOf(account,id);
             if(bal && ethers.BigNumber.from(bal).gt(0)){ ok=true; hit=id; break; }
           }catch(_){}
         }
       }
-      sHit.textContent = hit ?? "–";
+
+      sHit.textContent=hit ?? "–";
       if(ok){ setStatus("ok","Unlocked"); locked.style.display="none"; secret.style.display="block"; }
       else  { setStatus("bad","No access"); locked.style.display="block"; secret.style.display="none"; alert("❌ ต้องถือ Token ID 0–10"); }
-    }catch(err){ sErr.textContent=(err&&err.message)?err.message:String(err); setStatus("bad","Error"); alert("ตรวจสอบสิทธิ์ผิดพลาด"); }
+    }catch(err){
+      sErr.textContent=(err&&err.message)?err.message:String(err);
+      setStatus("bad","Error");
+      alert("ตรวจสอบสิทธิ์ผิดพลาด");
+    }
   }
 
-  // ปุ่ม MetaMask (Injected)
+  // MetaMask (Injected)
   document.getElementById("btn-metamask").addEventListener("click", async ()=>{
     if(!window.ethereum){ alert("ไม่พบ MetaMask (ลองปุ่ม Universal หรือเปิดด้วย MetaMask App)"); return; }
     await verifyWithProvider(window.ethereum,"MetaMask");
   });
 
-  // ปุ่ม Universal (smart)
+  // Universal: Injected -> WalletConnect -> Deeplink
   const w3m=window.Web3ModalStandalone; let modal=null;
-  function ensureW3M(){ if(!modal){ modal=w3m.default({projectId:WALLETCONNECT_PROJECT_ID,themeMode:"dark",walletConnectVersion:2}); } return modal; }
+  function ensureW3M(){
+    if(!modal){
+      modal=w3m.default({ projectId:WALLETCONNECT_PROJECT_ID, themeMode:"dark", walletConnectVersion:2 });
+    }
+    return modal;
+  }
 
   document.getElementById("btn-universal").addEventListener("click", async ()=>{
-    // 1) ถ้ามี injected (รวมถึง MetaMask ในแอปมือถือ) ใช้อันนี้ก่อน
     if(window.ethereum){ await verifyWithProvider(window.ethereum,"Injected"); return; }
-    // 2) ไม่มี → WalletConnect
     try{
       const m=ensureW3M();
       const provider=await m.connect();
       await verifyWithProvider(provider,"WalletConnect");
     }catch(e){
-      // 3) มือถือ ไม่มี wallet → deeplink ไป MetaMask app
       const isMobile=/android|iphone|ipad|ipod/i.test(navigator.userAgent);
       if(isMobile){ location.href="https://metamask.app.link/dapp/"+currentUrl; }
     }
   });
 
-  // ล้างหน้าจอ
+  // Clear UI
   document.getElementById("btn-clear").addEventListener("click", ()=>{
     sAddr.textContent="–"; sChain.textContent="–"; sStd.textContent="–";
     sHit.textContent="–"; sErr.textContent="–"; setStatus("warn","Not connected");
