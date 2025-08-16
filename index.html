@@ -12,11 +12,12 @@
   <script src="https://unpkg.com/@web3modal/standalone@2.7.2/dist/index.umd.js"></script>
 
   <style>
-    :root { --bg:#0b0f14; --panel:#0f172a; --muted:#93a3b8; --brand:#2563eb; }
+    :root { --bg:#0b0f14; --panel:#0f172a; --muted:#93a3b8; --brand:#2563eb; --ok:#16a34a; --bad:#ef4444; }
     * { box-sizing:border-box }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:#e9f0f4; margin:0; padding:32px; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:#e9f0f4; margin:0; padding:24px; }
     h1, h2 { margin: 0 0 8px }
     a { color:#67e8f9; font-weight:600; text-decoration:none }
+    .wrap { max-width:880px; margin:0 auto; }
     .card { background:var(--panel); border:1px solid #1f2937; border-radius:14px; padding:18px; margin-top:20px; }
     #secret { display:none; }
     #locked { margin-top:16px; }
@@ -25,22 +26,34 @@
     code { background:#111827; padding:2px 6px; border-radius:6px }
     .btn-row { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; }
     .btn-secondary { background:#334155; }
+    .btn-danger { background:var(--bad); }
+    ul.addr-list { list-style:none; padding:0; margin:10px 0 0; }
+    ul.addr-list li { display:flex; align-items:center; gap:8px; padding:8px 0; border-top:1px solid #1f2937; }
+    .pill { font-size:12px; padding:2px 8px; border-radius:999px; background:#334155; }
+    .ok { background:rgba(22,163,74,.15); color:#86efac; }
+    .bad { background:rgba(239,68,68,.15); color:#fecaca; }
   </style>
 </head>
 <body>
-  <h2>🔐 Thronedis – Token Gated (เฉพาะ Token ID 0–10)</h2>
-  <div class="muted">Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code></div>
+<div class="wrap">
+  <h2>🔐 Thronedis – Token Gated (เพิ่ม/สลับหลายกระเป๋า)</h2>
+  <div class="muted">Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code> · Allowed IDs: <code>0–10</code></div>
 
   <div id="locked" class="card">
     <p>ต้องถือ NFT ที่ <strong>Token ID 0–10</strong> ในคอลเล็กชันนี้จึงจะปลดล็อกได้</p>
     <div class="btn-row">
-      <button id="connect-universal">👜 Connect (Universal)</button>
-      <button id="connect-metamask" class="btn-secondary">🦊 MetaMask (Desktop)</button>
-      <a id="open-mm-deeplink" class="btn-secondary" style="display:inline-block; padding:10px 16px; border-radius:10px; background:#475569; color:white" target="_blank" rel="noopener">
-        📲 เปิดหน้านี้ใน MetaMask App
+      <button id="btn-universal">👜 Connect / Add Wallet (Universal)</button>
+      <button id="btn-metamask" class="btn-secondary">🦊 Add MetaMask (Desktop)</button>
+      <a id="btn-mm-app" class="btn-secondary" style="display:inline-block; padding:10px 16px; border-radius:10px; background:#475569; color:white" target="_blank" rel="noopener">
+        📲 Open in MetaMask App
       </a>
+      <button id="btn-clear" class="btn-danger">🧹 Clear Connected</button>
     </div>
-    <p class="muted" style="margin-top:10px;">ปุ่ม Universal ใช้ Web3Modal (WalletConnect v2) — ใช้ได้ทั้งมือถือและเดสก์ท็อป</p>
+    <div id="accounts" class="muted" style="margin-top:10px;">
+      <strong>Connected wallets:</strong>
+      <ul class="addr-list" id="addr-list"></ul>
+    </div>
+    <p class="muted" style="margin-top:10px;">กดปุ่ม “Universal” เพื่อเชื่อมวอลเล็ตใหม่ได้เรื่อย ๆ (WalletConnect v2)</p>
   </div>
 
   <div id="secret" class="card">
@@ -48,13 +61,13 @@
     <p><a href="https://ipfs.io/ipfs/bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu" target="_blank">📂 ดาวน์โหลดไฟล์จาก IPFS</a></p>
     <p class="muted">หมายเหตุ: IPFS เป็น public; หากต้องการความปลอดภัยสูง ควรแจก one‑time link ผ่าน backend</p>
   </div>
+</div>
 
   <script>
     // ===== CONFIG =====
     const CONTRACT_ADDRESS = "0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
     const NETWORK_HEX = "0x89"; // Polygon Mainnet
-    // อนุญาตเฉพาะ tokenId 0–10
-    const TOKEN_IDS = ["0","1","2","3","4","5","6","7","8","9","10"];
+    const TOKEN_IDS = ["0","1","2","3","4","5","6","7","8","9","10"]; // อนุญาต 0–10
     const WALLETCONNECT_PROJECT_ID = "ba3a040708c3e27acefb4eb4b3c5d9a8";
     // ===================
 
@@ -67,9 +80,31 @@
     const ABI_ERC721  = ["function ownerOf(uint256 tokenId) view returns (address)"];
     const ABI_ERC1155 = ["function balanceOf(address account, uint256 id) view returns (uint256)"];
 
+    const state = { entries: [] }; // { address, hasAccess, source }
+    const addrListEl = document.getElementById("addr-list");
+
     // Deep link สำหรับเปิดเว็บนี้ใน MetaMask Mobile
     const currentUrl = location.href;
-    document.getElementById("open-mm-deeplink").href = "https://metamask.app.link/dapp/" + currentUrl.replace(/^https?:\/\//,'').replace(/\/+/g,'/');
+    document.getElementById("btn-mm-app").href = "https://metamask.app.link/dapp/" + currentUrl.replace(/^https?:\/\//,'').replace(/\/+/g,'/');
+
+    function short(a) { return a ? a.slice(0,6) + "…" + a.slice(-4) : ""; }
+
+    function renderList() {
+      addrListEl.innerHTML = "";
+      state.entries.forEach((e) => {
+        const li = document.createElement("li");
+        const tag = document.createElement("span");
+        tag.className = "pill " + (e.hasAccess ? "ok" : "bad");
+        tag.textContent = e.hasAccess ? "has access" : "no access";
+        li.innerHTML = `<span class="pill">${e.source}</span> <code>${e.address}</code>`;
+        li.appendChild(tag);
+        addrListEl.appendChild(li);
+      });
+      // ถ้า wallet ใด ๆ มี access → ปลดล็อก
+      const any = state.entries.some(e => e.hasAccess);
+      document.getElementById("locked").style.display = any ? "none" : "block";
+      document.getElementById("secret").style.display = any ? "block" : "none";
+    }
 
     async function ensurePolygon(provider) {
       const chainId = await provider.request({ method: "eth_chainId" });
@@ -93,7 +128,7 @@
       return "ERC721"; // fallback
     }
 
-    async function verifyWithProvider(provider) {
+    async function verifyWithProvider(provider, sourceName) {
       await ensurePolygon(provider);
       const accounts = await provider.request({ method: "eth_requestAccounts" });
       const account = accounts[0];
@@ -109,9 +144,7 @@
           try {
             const owner = await c.ownerOf(id);
             if (owner && owner.toLowerCase() === account.toLowerCase()) { hasAccess = true; break; }
-          } catch (err) {
-            // หาก tokenId ยังไม่ mint จะ revert — ข้ามได้
-          }
+          } catch (err) { /* token ยังไม่ mint → ข้าม */ }
         }
       } else {
         const c = new ethers.Contract(CONTRACT_ADDRESS, ABI_ERC1155, signer);
@@ -123,15 +156,19 @@
         }
       }
 
-      document.getElementById("locked").style.display = hasAccess ? "none" : "block";
-      document.getElementById("secret").style.display = hasAccess ? "block" : "none";
-      if (!hasAccess) alert("❌ ยังไม่มีสิทธิ์เข้าถึง (ต้องถือ Token ID 0–10)");
+      // เก็บผลลัพธ์ (ถ้ามี address เดิมแล้ว อัปเดตแทน)
+      const idx = state.entries.findIndex(e => e.address.toLowerCase() === account.toLowerCase());
+      const entry = { address: account, hasAccess, source: sourceName };
+      if (idx >= 0) state.entries[idx] = entry; else state.entries.push(entry);
+      renderList();
+
+      if (!hasAccess) alert("❌ " + short(account) + " ยังไม่มีสิทธิ์ (ต้องถือ Token ID 0–10)");
     }
 
-    // --- MetaMask button (desktop/injected) ---
-    document.getElementById("connect-metamask").addEventListener("click", async () => {
-      if (!window.ethereum) { alert("ไม่พบ MetaMask (ลองปุ่ม Connect Universal หรือเปิดด้วย MetaMask App)"); return; }
-      await verifyWithProvider(window.ethereum);
+    // --- MetaMask (Desktop) ---
+    document.getElementById("btn-metamask").addEventListener("click", async () => {
+      if (!window.ethereum) { alert("ไม่พบ MetaMask (ลองกดปุ่ม Universal หรือเปิดด้วย MetaMask App)"); return; }
+      await verifyWithProvider(window.ethereum, "MetaMask");
     });
 
     // --- Web3Modal (WalletConnect v2) — Universal button ---
@@ -149,12 +186,22 @@
       return modal;
     }
 
-    document.getElementById("connect-universal").addEventListener("click", async () => {
+    document.getElementById("btn-universal").addEventListener("click", async () => {
       const m = ensureWeb3Modal();
       if (!m) { alert("Web3Modal ยังไม่ได้ตั้งค่า projectId"); return; }
       const provider = await m.connect();
-      await verifyWithProvider(provider);
+      await verifyWithProvider(provider, "WalletConnect");
     });
+
+    // --- Clear list ---
+    document.getElementById("btn-clear").addEventListener("click", () => {
+      state.entries = [];
+      renderList();
+    });
+
+    // render แรก
+    renderList();
   </script>
 </body>
 </html>
+```0
