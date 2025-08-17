@@ -1,152 +1,328 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <title>🔑 Thronedis – Token Gated (ขอบคุณ Holder)</title>
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🔒 Token‑Gated Download — ERC‑721 (Polygon)</title>
+
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <!-- WalletConnect (v2) UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.1/dist/index.umd.min.js"></script>
+
   <style>
-    body { background:#0d1117; color:#f0f6fc; font-family:Arial, sans-serif; margin:0; padding:20px; }
-    h1 { color:#ffd700; }
-    .card { background:#161b22; border-radius:12px; padding:20px; margin:15px 0; }
-    button { margin:6px 0; padding:10px 16px; border:none; border-radius:8px; cursor:pointer; font-size:15px; }
-    .mm { background:#ff6a00; color:#fff; }
-    .wc { background:#9156f9; color:#fff; }
-    .clear { background:#e63946; color:#fff; }
-    .copy { background:#2d6a4f; color:#fff; margin-left:8px; }
-    .link-box { display:flex; align-items:center; }
-    .hidden { display:none; }
+    :root { --card:#0b1220; --ink:#e6ecff; --muted:#9fb0ff; --ok:#22c55e; --err:#f43f5e; --edge:#1f2a44; --warn:#eab308; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Arial; background: radial-gradient(1200px 600px at 10% -10%,#13203d 0,#0b1220 50%,#090f1a 100%); color:var(--ink); }
+    .wrap{ max-width: 920px; margin: 40px auto; padding: 0 16px; }
+    .card{ background: linear-gradient(180deg,#0f1830,#0b1220); border:1px solid var(--edge); border-radius: 16px; padding: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    h1{ margin: 0 0 10px; font-size: 22px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; margin: 14px 0; align-items:center; }
+    button, .btn{
+      appearance:none; border:1px solid var(--edge); background:#121b33; color:var(--ink);
+      padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+    }
+    button:hover,.btn:hover{ filter:brightness(1.08); }
+    .pill{ display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--edge); color:var(--muted); font-size:12px }
+    .status{ margin-top:10px; font-size:14px; color:var(--muted); }
+    .ok{ color:var(--ok); font-weight:700 }
+    .err{ color:var(--err); font-weight:700 }
+    .gate{ margin-top:16px; padding:16px; border:1px dashed var(--edge); border-radius: 12px; text-align:center; }
+    .hidden{ display:none; }
+    .linkbox{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+    a.btn{ text-decoration:none; }
+    .hint{ color:#8ea0ff; font-size:12px; margin-top:8px }
+    .warn-strong{ font-weight:800; color:var(--warn); }
+    .spacer{ flex:1 1 auto; }
+    .copybox{ display:flex; gap:10px; align-items:center; }
+    .copyinp{ background:#0f1830; border:1px solid var(--edge); color:#cfe0ff; padding:8px 10px; border-radius:10px; font-size:12px; width:100%; }
   </style>
 </head>
 <body>
-  <div class="link-box">
-    <strong>🔗 หน้าปัจจุบัน:</strong>&nbsp;
-    <span id="pageUrl"></span>
-    <button class="copy" onclick="copyUrl()">คัดลอกลิงก์</button>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <h1 id="title">🔒 ดาวน์โหลดสำหรับผู้ถือ — ERC‑721</h1>
+        <div class="spacer"></div>
+        <button id="langBtn" aria-label="toggle language">EN</button>
+      </div>
+
+      <!-- แสดงลิงก์ของหน้า + ปุ่มคัดลอก -->
+      <div class="row">
+        <div class="copybox" style="width:100%">
+          <input id="pageUrl" class="copyinp" value="https://rdxtune89.github.io/test-gate-2/" readonly />
+          <button id="copyBtn" title="Copy URL">📋 Copy</button>
+        </div>
+        <span class="pill" id="pillNet">Network: Polygon (137 / 0x89)</span>
+        <span class="pill" id="pillStd">ERC‑721 only</span>
+      </div>
+      <div class="hint" id="hintPutUrl">
+        แนะนำให้นำลิ้งค์นี้ใส่ในช่อง URL ของกระเป๋าดิจิทัลเพื่อปลดล็อคโบนัส
+      </div>
+
+      <div class="row">
+        <button id="connectMeta">Connect with MetaMask</button>
+        <button id="connectWC">Connect with WalletConnect</button>
+      </div>
+
+      <div id="status" class="status">ยังไม่เชื่อมต่อ</div>
+
+      <div id="locked" class="gate">
+        <strong class="err" id="lockedTitle">Locked</strong>
+        <div class="hint" id="hintReq">
+          ต้องถือ NFT จาก <b>คอลเลกชันใดคอลเลกชันหนึ่ง</b> (ERC‑721) ที่กำหนด จึงจะเห็นลิงก์ดาวน์โหลด
+        </div>
+        <div class="hint warn-strong" id="hintMobile">
+          บนมือถือ แนะนำเปิดหน้านี้ผ่าน MetaMask App (Browser ในแอป) หรือใช้ปุ่ม WalletConnect
+        </div>
+      </div>
+
+      <!-- ลิงก์ไฟล์จะแสดงหลังปลดล็อกเท่านั้น (OneDrive ตามที่ให้) -->
+      <div id="unlocked" class="gate hidden">
+        <strong class="ok" id="unlockedTitle">🎉 ปลดล็อกแล้ว</strong>
+        <div class="hint" id="hintUnlocked">ตรวจพบว่าคุณถือ NFT จากหนึ่งในคอลเลกชันที่กำหนด — สามารถดาวน์โหลดไฟล์ได้</div>
+        <div class="linkbox">
+          <a class="btn" target="_blank" rel="noopener"
+             href="https://1drv.ms/f/c/c8b5f8675251b289/Eib9CPMUqN9NvdWqPQh60gYBJzWhRXWwmEue6kCq84D9Ng" id="btnOneDrive">
+             🔗 Open OneDrive
+          </a>
+        </div>
+        <div class="hint" id="hintOneTime">คำแนะนำ: โปรดักชันควรออก one‑time download link จาก backend</div>
+      </div>
+    </div>
   </div>
 
-  <h1>🔑 Thronedis – Token Gated <small>(ขอบคุณ Holder)</small></h1>
-  <p>Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code><br/>
-     · Allowed IDs: 0–10</p>
+  <script>
+    // ===== ตั้งค่าเครือข่าย/สัญญา =====
+    const CHAIN_ID_DEC = 137;                  // Polygon Mainnet
+    const CHAIN_ID_HEX = "0x89";
+    // ปลดล็อกได้ถ้าถือคอลเลกชัน "ใดคอลเลกชันหนึ่ง" (ERC‑721)
+    const COLLECTIONS_ERC721 = [
+      "0xefc87d60fc234d87286d41c5143b25c1abf38477",
+      "0x76f4E59DBBF99D025B6F1014D33843AB138e4085"
+    ];
+    // WalletConnect Project ID (ที่ถูกต้อง)
+    const WC_PROJECT_ID = "ba3a040708c3e27acefb4eb4b3c5d9a8";
 
-  <div class="card">
-    <p><b>Status:</b> <span id="status">Not connected</span></p>
-    <p>Address: <span id="addr">-</span><br/>
-       Chain: <span id="chain">-</span><br/>
-       Matched tokenId: <span id="tid">-</span></p>
-  </div>
+    // ABI ที่ต้องใช้ (ERC‑165 ตรวจมาตรฐาน + ERC‑721 balanceOf)
+    const ABI = [
+      "function supportsInterface(bytes4 interfaceId) view returns (bool)",
+      "function balanceOf(address owner) view returns (uint256)"
+    ];
+    const IERC721_ID = "0x80ac58cd"; // interfaceId ของ ERC‑721
 
-  <div class="card">
-    <p>ต้องถือ NFT ที่ Token ID 0–10 จึงจะปลดล็อกได้</p>
-    <button class="mm" onclick="connectMetaMask()">🦊 Connect MetaMask</button><br/>
-    <button class="wc" onclick="connectWalletConnect()">👜 Connect WalletConnect</button><br/>
-    <button class="clear" onclick="clearConn()">🧹 Clear Connected</button>
-  </div>
+    // ===== i18n (สองภาษา) =====
+    let LANG = "th";
+    const t = {
+      th: {
+        title: "🔒 ดาวน์โหลดสำหรับผู้ถือ — ERC‑721",
+        pillNet: "Network: Polygon (137 / 0x89)",
+        pillStd: "ERC‑721 เท่านั้น",
+        connectMM: "เชื่อมต่อด้วย MetaMask",
+        connectWC: "เชื่อมต่อด้วย WalletConnect",
+        statusIdle: "ยังไม่เชื่อมต่อ",
+        locked: "Locked",
+        hintReq: "ต้องถือ NFT จาก <b>คอลเลกชันใดคอลเลกชันหนึ่ง</b> (ERC‑721) ที่กำหนด จึงจะเห็นลิงก์ดาวน์โหลด",
+        hintMobile: "บนมือถือ แนะนำเปิดหน้านี้ผ่าน MetaMask App (Browser ในแอป) หรือใช้ปุ่ม WalletConnect",
+        unlocked: "🎉 ปลดล็อกแล้ว",
+        hintUnlocked: "ตรวจพบว่าคุณถือ NFT จากหนึ่งในคอลเลกชันที่กำหนด — สามารถดาวน์โหลดไฟล์ได้",
+        oneDrive: "🔗 เปิด OneDrive",
+        oneTime: "คำแนะนำ: โปรดักชันควรออก one‑time download link จาก backend",
+        statusNetWrong: (addr, cid)=>`เชื่อมต่อกับ ${addr} แต่เครือข่ายไม่ใช่ Polygon (chainId=${cid})`,
+        statusChecking: (addr)=>`เชื่อมต่อ: ${addr} (Polygon) — กำลังตรวจสิทธิ์...`,
+        statusHas: "ยืนยันสิทธิ์แล้ว: คุณถือ NFT จากหนึ่งในคอลเลกชันนี้ ✅",
+        statusNo: "คุณไม่ได้ถือ NFT จากคอลเลกชันที่กำหนด ❌",
+        statusNot721: "สัญญานี้ไม่รองรับรูปแบบ ERC‑721 — หน้านี้ล็อกเฉพาะ ERC‑721 เท่านั้น",
+        statusMMFail: "เชื่อมต่อ MetaMask ไม่สำเร็จ",
+        statusWCFail: "เชื่อมต่อ WalletConnect ไม่สำเร็จ",
+        alertNoMM: "ไม่พบ MetaMask — ใช้ปุ่ม WalletConnect หรือเปิดผ่าน MetaMask App",
+        putUrl: "แนะนำให้นำลิ้งค์นี้ใส่ในช่อง URL ของกระเป๋าดิจิทัลเพื่อปลดล็อคโบนัส",
+        copyOk: "คัดลอกลิงก์แล้ว!"
+      },
+      en: {
+        title: "🔒 Token‑Gated Download — ERC‑721",
+        pillNet: "Network: Polygon (137 / 0x89)",
+        pillStd: "ERC‑721 only",
+        connectMM: "Connect with MetaMask",
+        connectWC: "Connect with WalletConnect",
+        statusIdle: "Not connected",
+        locked: "Locked",
+        hintReq: "You must hold an NFT from one of the specified collections (ERC‑721) to see the download link.",
+        hintMobile: "On mobile, open this page in the MetaMask in‑app browser or use WalletConnect.",
+        unlocked: "🎉 Unlocked",
+        hintUnlocked: "Ownership verified — you can download the file.",
+        oneDrive: "🔗 Open OneDrive",
+        oneTime: "Tip: In production, issue a one‑time download link from your backend.",
+        statusNetWrong: (addr, cid)=>`Connected ${addr} but network is not Polygon (chainId=${cid})`,
+        statusChecking: (addr)=>`Connected: ${addr} (Polygon) — verifying ownership...`,
+        statusHas: "Ownership verified for one of the collections ✅",
+        statusNo: "No eligible NFT detected for the specified collections ❌",
+        statusNot721: "Contract does not behave like ERC‑721 — this page is locked to ERC‑721 only.",
+        statusMMFail: "MetaMask connection failed",
+        statusWCFail: "WalletConnect failed",
+        alertNoMM: "MetaMask not found — use WalletConnect or open this page in the MetaMask in‑app browser",
+        putUrl: "We recommend pasting this URL in your wallet’s URL field to unlock bonuses.",
+        copyOk: "URL copied!"
+      }
+    };
 
-  <div id="unlocked" class="card hidden">
-    <h3>🎉 ปลดล็อกแล้ว</h3>
-    <p>กดเพื่อเข้าลิงก์:</p>
-    <ul>
-      <li><a href="https://bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu.ipfs.w3s.link" target="_blank">IPFS – Test Link</a></li>
-      <li><a href="https://cloudflare-ipfs.com/ipfs/bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu" target="_blank">IPFS (Cloudflare)</a></li>
-      <li><a href="https://1drv.ms/u/s!test_onedrive_link" target="_blank">OneDrive Download</a></li>
-    </ul>
-  </div>
+    function applyLang() {
+      document.getElementById("title").textContent = t[LANG].title;
+      document.getElementById("pillNet").textContent = t[LANG].pillNet;
+      document.getElementById("pillStd").textContent = t[LANG].pillStd;
+      document.getElementById("connectMeta").textContent = t[LANG].connectMM;
+      document.getElementById("connectWC").textContent  = t[LANG].connectWC;
+      document.getElementById("status").textContent = t[LANG].statusIdle;
+      document.getElementById("lockedTitle").textContent = t[LANG].locked;
+      document.getElementById("hintReq").innerHTML = t[LANG].hintReq;
+      document.getElementById("hintMobile").textContent = t[LANG].hintMobile;
+      document.getElementById("unlockedTitle").textContent = t[LANG].unlocked;
+      document.getElementById("hintUnlocked").textContent = t[LANG].hintUnlocked;
+      document.getElementById("btnOneDrive").textContent = t[LANG].oneDrive;
+      document.getElementById("hintOneTime").textContent = t[LANG].oneTime;
+      document.getElementById("hintPutUrl").textContent = t[LANG].putUrl;
+      document.getElementById("langBtn").textContent = (LANG==="th"?"EN":"TH");
+    }
 
-<script type="module">
-import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.esm.min.js";
-import WalletConnectProvider from "https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.9.0/dist/index.min.js";
+    document.getElementById("langBtn").addEventListener("click", ()=>{
+      LANG = (LANG==="th" ? "en" : "th");
+      applyLang();
+    });
 
-const CONTRACT_ADDR = "0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
-const ABI = [
-  "function ownerOf(uint256 tokenId) view returns (address)"
-];
-const ALLOWED = Array.from({length:11},(_,i)=>i); // 0–10
+    // ===== DOM refs =====
+    const $ = (id) => document.getElementById(id);
+    const elStatus = $("status");
+    const elLocked = $("locked");
+    const elUnlocked = $("unlocked");
 
-let provider, signer, addr;
+    // copy url
+    $("copyBtn").addEventListener("click", async ()=>{
+      try{
+        await navigator.clipboard.writeText($("pageUrl").value);
+        $("copyBtn").textContent = "✅";
+        setTimeout(()=>{ $("copyBtn").textContent="📋 Copy"; }, 1200);
+      }catch(_){}
+    });
 
-document.getElementById("pageUrl").textContent = window.location.href;
-
-function copyUrl(){
-  navigator.clipboard.writeText(window.location.href);
-  alert("คัดลอกลิงก์แล้ว!");
-}
-
-async function connectMetaMask(){
-  if(window.ethereum){
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    signer = provider.getSigner();
-    addr = await signer.getAddress();
-    updateUI();
-    checkNFT();
-  } else {
-    // fallback deeplink to MetaMask app
-    const url = "https://metamask.app.link/dapp/" + window.location.href.replace(/^https?:\/\//,"");
-    window.location.href = url;
-  }
-}
-
-async function connectWalletConnect(){
-  const wc = await WalletConnectProvider.init({
-    projectId: "ba3a040708c3e27acefb4eb4b3c5d9a8", // เปลี่ยนเป็นของคุณ
-    chains:[137],
-    optionalChains:[1],
-    showQrModal:true
-  });
-  await wc.enable();
-  provider = new ethers.providers.Web3Provider(wc);
-  signer = provider.getSigner();
-  addr = await signer.getAddress();
-  updateUI();
-  checkNFT();
-}
-
-function clearConn(){
-  provider=null; signer=null; addr=null;
-  document.getElementById("status").textContent="Not connected";
-  document.getElementById("addr").textContent="-";
-  document.getElementById("chain").textContent="-";
-  document.getElementById("tid").textContent="-";
-  document.getElementById("unlocked").classList.add("hidden");
-}
-
-async function updateUI(){
-  document.getElementById("status").textContent="Connected";
-  document.getElementById("addr").textContent=addr;
-  const net = await provider.getNetwork();
-  document.getElementById("chain").textContent=net.chainId;
-}
-
-async function checkNFT(){
-  const net = await provider.getNetwork();
-  if(net.chainId !==137){
-    try{
-      await provider.send("wallet_switchEthereumChain", [{ chainId: "0x89"}]);
-    }catch(e){
-      if(e.code===4902){
-        await provider.send("wallet_addEthereumChain",[{
-          chainId:"0x89",
-          rpcUrls:["https://polygon-rpc.com/"],
-          chainName:"Polygon",
-          nativeCurrency:{name:"MATIC",symbol:"MATIC",decimals:18},
-          blockExplorerUrls:["https://polygonscan.com/"]
-        }]);
+    // ===== Helpers =====
+    function setStatus(msg, asOk=false, asErr=false){
+      elStatus.classList.remove("ok","err");
+      if(asOk) elStatus.classList.add("ok");
+      if(asErr) elStatus.classList.add("err");
+      elStatus.textContent = msg;
+    }
+    async function ensureChain(provider){
+      try{
+        await provider.request({ method:"wallet_switchEthereumChain", params:[{ chainId: CHAIN_ID_HEX }] });
+      }catch(err){
+        // ถ้าไม่มี chain ให้เพิ่มก่อน (error code 4902)
+        if (err && (err.code===4902 || String(err.message).includes("4902"))) {
+          await provider.request({ method:"wallet_addEthereumChain", params:[{
+            chainId: CHAIN_ID_HEX,
+            chainName: "Polygon Mainnet",
+            nativeCurrency: { name:"MATIC",symbol:"MATIC",decimals:18 },
+            rpcUrls: ["https://polygon-rpc.com","https://rpc.ankr.com/polygon"],
+            blockExplorerUrls: ["https://polygonscan.com"]
+          }]} );
+          await provider.request({ method:"wallet_switchEthereumChain", params:[{ chainId: CHAIN_ID_HEX }] });
+        }
       }
     }
-  }
-  const c = new ethers.Contract(CONTRACT_ADDR, ABI, provider);
-  for(let id of ALLOWED){
-    try{
-      const owner = await c.ownerOf(id);
-      if(owner.toLowerCase()===addr.toLowerCase()){
-        document.getElementById("tid").textContent=id;
-        document.getElementById("unlocked").classList.remove("hidden");
+    function showLocked(){ elLocked.classList.remove("hidden"); elUnlocked.classList.add("hidden"); }
+    function showUnlocked(){ elLocked.classList.add("hidden"); elUnlocked.classList.remove("hidden"); }
+
+    // ===== ตรวจสิทธิ์: ถือคอลเลกชัน "ใดคอลเลกชันหนึ่ง" ก็ปลดล็อก =====
+    async function checkOwnership(provider){
+      const web3 = new ethers.providers.Web3Provider(provider, "any");
+      await ensureChain(provider);
+      const signer = web3.getSigner();
+      const addr = await signer.getAddress();
+
+      const net = await web3.getNetwork();
+      if (net.chainId !== CHAIN_ID_DEC){
+        setStatus(t[LANG].statusNetWrong(addr, net.chainId), false, true);
+        showLocked();
         return;
       }
-    }catch{}
-  }
-  alert("ไม่มี NFT ที่กำหนด");
-}
-</script>
+
+      setStatus(t[LANG].statusChecking(addr));
+
+      let hasAny = false;
+
+      for (const caddr of COLLECTIONS_ERC721) {
+        const contract = new ethers.Contract(caddr, ABI, web3);
+
+        // ลองเช็ค supportsInterface (ถ้าไม่มีให้ไปต่อ)
+        let isErc721 = false;
+        try{
+          isErc721 = await contract.supportsInterface(IERC721_ID);
+        }catch(e){
+          isErc721 = true; // บางสัญญาไม่ implement ERC165 แต่ยังใช้ balanceOf ได้
+        }
+        if (!isErc721) continue;
+
+        try{
+          const bal = await contract.balanceOf(addr);
+          if (ethers.BigNumber.from(bal).gt(0)) {
+            hasAny = true;
+            break;
+          }
+        }catch(e){
+          // ถ้าเรียกไม่ได้ ข้ามไปตรวจสัญญาถัดไป
+        }
+      }
+
+      if (hasAny){
+        setStatus(t[LANG].statusHas, true, false);
+        showUnlocked();
+      }else{
+        setStatus(t[LANG].statusNo, false, true);
+        showLocked();
+      }
+    }
+
+    // ===== ปุ่มเชื่อมต่อ =====
+    $("connectMeta").addEventListener("click", async()=>{
+      // ให้ popup MetaMask โผล่แน่นอน:
+      if (window.ethereum && window.ethereum.request){
+        try{
+          await window.ethereum.request({ method:"eth_requestAccounts" });
+          await checkOwnership(window.ethereum);
+        }catch(e){
+          console.error(e);
+          setStatus(t[LANG].statusMMFail, false, true);
+        }
+      } else {
+        // ไม่มี MetaMask → ดีปลิงก์ไปเปิดในแอปให้
+        const url = location.href.replace(/^https?:\/\//,'');
+        location.href = "https://metamask.app.link/dapp/" + url;
+      }
+    });
+
+    $("connectWC").addEventListener("click", async()=>{
+      try{
+        const wc = await window.WalletConnectEthereumProvider.init({
+          projectId: WC_PROJECT_ID,
+          chains: [CHAIN_ID_DEC],
+          optionalChains: [CHAIN_ID_DEC],
+          showQrModal: true,
+          methods: [
+            "eth_requestAccounts","eth_sendTransaction",
+            "personal_sign","eth_signTypedData","eth_signTypedData_v4","eth_sign"
+          ],
+          rpcMap: { [CHAIN_ID_DEC]: "https://polygon-rpc.com" }
+        });
+        await wc.enable();
+        await checkOwnership(wc);
+      }catch(e){
+        console.error(e);
+        setStatus(t[LANG].statusWCFail, false, true);
+      }
+    });
+
+    // เริ่มต้นภาษา/สถานะ
+    applyLang();
+    showLocked();
+  </script>
 </body>
 </html>
