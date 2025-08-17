@@ -1,214 +1,172 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🔐 Thronedis Gate — ขอบคุณ Holder | Multi‑Wallet (IDs 0–10)</title>
-
-  <!-- Ethers & Web3Modal -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://unpkg.com/@web3modal/standalone@2.7.2/dist/index.umd.js"></script>
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔐 Holder Gate — Download</title>
+  <meta name="description" content="Password-gated download page with language toggle (TH/EN).">
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root{--bg:#0b0f14;--panel:#0f172a;--muted:#93a3b8;--brand:#2563eb}
-    *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:#e9f0f4;margin:0;padding:24px}
-    a{color:#67e8f9;font-weight:600;text-decoration:none}
-    .wrap{max-width:880px;margin:0 auto}
-    .card{background:#0f172a;border:1px solid #1f2937;border-radius:14px;padding:18px;margin-top:20px}
-    .muted{color:var(--muted)}
-    code{background:#111827;padding:2px 6px;border-radius:6px}
-    .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-    button,.btn-link{padding:10px 16px;border-radius:10px;border:0;cursor:pointer;background:var(--brand);color:#fff;display:inline-block;text-decoration:none}
-    .btn-secondary{background:#334155}.btn-danger{background:#ef4444}
-    .thanks{text-align:center;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-bottom:14px}
-    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
-    .ok{background:rgba(22,163,74,.15);color:#86efac}
-    .bad{background:rgba(239,68,68,.15);color:#fecaca}
-    .warn{background:rgba(234,179,8,.15);color:#fde68a}
-    #secret{display:none}
+    body { background: radial-gradient(1200px 600px at 15% 10%, rgba(59,130,246,0.12), transparent), radial-gradient(800px 500px at 85% 20%, rgba(16,185,129,0.10), transparent); }
+    .card { backdrop-filter: blur(6px); }
   </style>
 </head>
-<body>
-<div class="wrap">
-  <div class="thanks">💖 ขอบคุณ <b>Holder</b> ทุกท่านที่สนับสนุนโปรเจกต์นี้! 💖</div>
+<body class="min-h-screen text-slate-900 antialiased">
+  <div class="max-w-2xl mx-auto p-6">
+    <header class="flex items-center justify-between gap-4">
+      <h1 id="title" class="text-2xl md:text-3xl font-black">🔐 หน้าปลดล็อคไฟล์สำหรับ Holder</h1>
+      <button id="langBtn" class="px-3 py-2 rounded-xl bg-slate-900 text-white text-sm font-semibold">EN</button>
+    </header>
 
-  <h2>🔐 Thronedis – Token Gated (เพิ่ม/สลับหลายกระเป๋า)</h2>
-  <div class="muted">Polygon (137) · Collection: <code>0x76f4E59DBBF99D025B6F1014D33843AB138e4085</code> · Allowed IDs: <code>0–10</code></div>
+    <section class="mt-6 p-5 rounded-2xl bg-white/80 shadow card">
+      <p id="subtitle" class="text-sm text-slate-600">
+        กรอกรหัสผ่านเพื่อปลดล็อคปุ่มดาวน์โหลด
+      </p>
 
-  <div class="card">
-    <b>Status:</b> <span id="status-text" class="badge warn">Not connected</span>
-    <div class="muted" style="margin-top:6px">
-      <div>Address: <code id="s-addr">–</code></div>
-      <div>Chain: <code id="s-chain">–</code></div>
-      <div>Standard detected: <code id="s-std">–</code></div>
-      <div>Matched tokenId: <code id="s-hit">–</code></div>
-      <div>Last error: <code id="s-err">–</code></div>
-    </div>
+      <div class="mt-4 flex gap-2 items-center">
+        <label for="pwd" class="sr-only">Password</label>
+        <div class="flex items-stretch w-full max-w-sm">
+          <input id="pwd" type="password" inputmode="numeric"
+                 class="w-full px-4 py-2 rounded-l-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 placeholder="รหัสผ่าน" />
+          <button id="togglePwd" class="px-3 border-y border-slate-300">
+            <span id="eye">👁️</span>
+          </button>
+          <button id="unlockBtn" class="px-4 py-2 rounded-r-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+            ปลดล็อค
+          </button>
+        </div>
+      </div>
+
+      <p id="hint" class="mt-2 text-xs text-slate-500">* เคล็ดลับ: คุณสามารถกดไอคอนตาเพื่อแสดง/ซ่อนรหัส</p>
+
+      <div id="error" class="mt-3 hidden text-sm text-red-600">รหัสผ่านไม่ถูกต้อง</div>
+
+      <div id="gated" class="mt-6 hidden">
+        <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+          <p id="welcome" class="text-sm">✅ ปลดล็อคสำเร็จ ขอบคุณที่สนับสนุนเรา!</p>
+        </div>
+
+        <div class="mt-4">
+          <h3 id="downloadTitle" class="font-semibold">🎁 ไฟล์สำหรับ Holder</h3>
+          <a id="downloadBtn" href="https://bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu.ipfs.w3s.link"
+             target="_blank"
+             class="inline-block mt-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">
+            ดาวน์โหลดไฟล์ (ZIP / PDF / ฯลฯ)
+          </a>
+          <p id="warning" class="mt-2 text-xs text-slate-700">
+            กรุณาอย่าแชร์ไฟล์ เพราะทีมงานตั้งใจทำให้ holder เท่านั้น
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-6 p-5 rounded-2xl bg-white/80 shadow card">
+      <h2 id="supportTitle" class="font-bold text-lg">ติดต่อ / แจ้งปัญหา</h2>
+      <ul class="mt-2 space-y-1 text-sm">
+        <li><span class="font-semibold">แจ้งปัญหา:</span> <a href="mailto:jn.vetclinic@gmail.com" class="text-blue-600 underline">jn.vetclinic@gmail.com</a></li>
+        <li><span class="font-semibold">Discord:</span> <a href="https://discord.gg/vtpWqrYJ" target="_blank" class="text-blue-600 underline">Join the community</a></li>
+        <li><span class="font-semibold">Twitter (X):</span> <a href="https://x.com/RDXTUNE181222" target="_blank" class="text-blue-600 underline">@RDXTUNE181222</a></li>
+      </ul>
+    </section>
+
+    <footer class="mt-8 text-center text-xs text-slate-500">
+      Static password demo (55). For real projects, consider one‑time links.
+    </footer>
   </div>
 
-  <div id="locked" class="card">
-    <p>ต้องถือ NFT ที่ <strong>Token ID 0–10</strong> จึงจะปลดล็อกได้</p>
-    <div class="btn-row">
-      <button id="btn-injected">🦊 Connect MetaMask (Injected)</button>
-      <button id="btn-universal" class="btn-secondary">👜 Connect / Add Wallet (Universal)</button>
-      <a id="btn-mm-app" class="btn-link btn-secondary" target="_blank" rel="noopener">📲 Open in MetaMask App</a>
-      <button id="btn-clear" class="btn-danger">🧹 Clear Connected</button>
-    </div>
-    <p class="muted" style="margin-top:10px;">Injected จะใช้ MetaMask/เบราว์เซอร์ที่มี provider → ถ้าไม่มีให้ใช้ Universal/MetaMask App</p>
-  </div>
+  <script>
+    // --- Config ---
+    const PASSWORD = "55";
 
-  <div id="secret" class="card">
-    <h3>🎉 เข้าถึงได้แล้ว</h3>
-    <p>ขอบคุณ Holder อีกครั้งสำหรับการสนับสนุน 💖</p>
-    <p><a href="https://bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu.ipfs.w3s.link" target="_blank">👉 Test Link (IPFS)</a></p>
-    <p class="muted">สำรอง: <a href="https://ipfs.io/ipfs/bafybeigsrytimlmv4dkz2px7ke4bwco4qj2kgxsdaeaxgmvkubiuexh5cu" target="_blank">ipfs.io gateway</a></p>
-  </div>
-</div>
+    // --- Elements ---
+    const $title = document.getElementById("title");
+    const $subtitle = document.getElementById("subtitle");
+    const $hint = document.getElementById("hint");
+    const $unlockBtn = document.getElementById("unlockBtn");
+    const $togglePwd = document.getElementById("togglePwd");
+    const $pwd = document.getElementById("pwd");
+    const $error = document.getElementById("error");
+    const $gated = document.getElementById("gated");
+    const $welcome = document.getElementById("welcome");
+    const $downloadTitle = document.getElementById("downloadTitle");
+    const $warning = document.getElementById("warning");
+    const $supportTitle = document.getElementById("supportTitle");
+    const $langBtn = document.getElementById("langBtn");
+    const $downloadBtn = document.getElementById("downloadBtn");
 
-<script>
-  // ===== CONFIG =====
-  const CONTRACT_ADDRESS="0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
-  const NETWORK_HEX="0x89"; // Polygon
-  const TOKEN_IDS=["0","1","2","3","4","5","6","7","8","9","10"];
-  const WALLETCONNECT_PROJECT_ID="ba3a040708c3e27acefb4eb4b3c5d9a8";
-  // ===================
-
-  const IID_ERC721="0x80ac58cd", IID_ERC1155="0xd9b67a26";
-  const ABI_ERC165=["function supportsInterface(bytes4) view returns (bool)"];
-  const ABI_ERC721=["function ownerOf(uint256) view returns (address)"];
-  const ABI_ERC1155=["function balanceOf(address,uint256) view returns (uint256)"];
-
-  const sText=document.getElementById("status-text");
-  const sAddr=document.getElementById("s-addr");
-  const sChain=document.getElementById("s-chain");
-  const sStd=document.getElementById("s-std");
-  const sHit=document.getElementById("s-hit");
-  const sErr=document.getElementById("s-err");
-  const secret=document.getElementById("secret");
-  const locked=document.getElementById("locked");
-
-  const currentUrl = location.href.replace(/^https?:\/\//,'').replace(/\/+/g,'/');
-  document.getElementById("btn-mm-app").href = "https://metamask.app.link/dapp/"+currentUrl;
-
-  function setStatus(kind,text){
-    sText.className="badge "+(kind==="ok"?"ok":kind==="bad"?"bad":"warn");
-    sText.textContent=text;
-  }
-
-  async function addPolygon(provider){
-    // Add Polygon if missing (Metamask error 4902)
-    await provider.request({ method: "wallet_addEthereumChain", params: [{
-      chainId: NETWORK_HEX,
-      chainName: "Polygon Mainnet",
-      nativeCurrency: { name: "MATIC", symbol: "MATIC", decimals: 18 },
-      rpcUrls: ["https://polygon-rpc.com", "https://rpc.ankr.com/polygon"],
-      blockExplorerUrls: ["https://polygonscan.com"]
-    }]});
-  }
-
-  async function ensurePolygon(provider){
-    let chainId = await provider.request({ method: "eth_chainId" });
-    sChain.textContent = chainId;
-    if (chainId !== NETWORK_HEX) {
-      try {
-        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK_HEX }] });
-      } catch (err) {
-        // 4902 = chain not added
-        if (err && (err.code === 4902 || err.message?.includes("4902"))) {
-          await addPolygon(provider);
-          await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: NETWORK_HEX }] });
-        } else {
-          throw err;
-        }
+    // --- i18n ---
+    let currentLang = "th";
+    const t = {
+      th: {
+        title: "🔐 หน้าปลดล็อคไฟล์สำหรับ Holder",
+        subtitle: "กรอกรหัสผ่านเพื่อปลดล็อคปุ่มดาวน์โหลด",
+        hint: "* เคล็ดลับ: คุณสามารถกดไอคอนตาเพื่อแสดง/ซ่อนรหัส",
+        unlock: "ปลดล็อค",
+        wrong: "รหัสผ่านไม่ถูกต้อง",
+        success: "✅ ปลดล็อคสำเร็จ ขอบคุณที่สนับสนุนเรา!",
+        dlTitle: "🎁 ไฟล์สำหรับ Holder",
+        dlBtn: "ดาวน์โหลดไฟล์ (ZIP / PDF / ฯลฯ)",
+        warn: "กรุณาอย่าแชร์ไฟล์ เพราะทีมงานตั้งใจทำให้ holder เท่านั้น",
+        support: "ติดต่อ / แจ้งปัญหา",
+        langBtn: "EN"
+      },
+      en: {
+        title: "🔐 Holder-only Download",
+        subtitle: "Enter the password to unlock the download button",
+        hint: "* Tip: click the eye icon to show/hide the password",
+        unlock: "Unlock",
+        wrong: "Incorrect password",
+        success: "✅ Unlocked — thank you for supporting us!",
+        dlTitle: "🎁 Holder Downloads",
+        dlBtn: "Download file (ZIP / PDF / etc.)",
+        warn: "Please do not share the file. It is intended only for holders.",
+        support: "Support / Report an issue",
+        langBtn: "TH"
       }
-      chainId = await provider.request({ method: "eth_chainId" });
-      sChain.textContent = chainId;
+    };
+
+    function renderLang() {
+      const L = t[currentLang];
+      $title.textContent = L.title;
+      $subtitle.textContent = L.subtitle;
+      $hint.textContent = L.hint;
+      $unlockBtn.textContent = L.unlock;
+      $error.textContent = L.wrong;
+      $welcome.textContent = L.success;
+      $downloadTitle.textContent = L.dlTitle;
+      $downloadBtn.textContent = L.dlBtn;
+      $warning.textContent = L.warn;
+      $supportTitle.textContent = L.support;
+      $langBtn.textContent = L.langBtn;
+      document.documentElement.lang = currentLang;
     }
-  }
+    renderLang();
 
-  async function detectStandard(provider){
-    const web3p=new ethers.providers.Web3Provider(provider);
-    const c165=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC165,web3p);
-    try{
-      const is721=await c165.supportsInterface(IID_ERC721);
-      const is1155=await c165.supportsInterface(IID_ERC1155);
-      if(is1155) return "ERC1155";
-      if(is721)  return "ERC721";
-    }catch(e){}
-    return "ERC721";
-  }
+    // --- Events ---
+    $togglePwd.addEventListener("click", () => {
+      $pwd.type = $pwd.type === "password" ? "text" : "password";
+    });
 
-  async function verifyWithProvider(provider, source){
-    try{
-      setStatus("warn","Checking…");
-      await ensurePolygon(provider);
-      const [account]=await provider.request({method:"eth_requestAccounts"});
-      sAddr.textContent=account;
-
-      const web3p=new ethers.providers.Web3Provider(provider);
-      const signer=web3p.getSigner();
-      const standard=await detectStandard(provider);
-      sStd.textContent=standard;
-
-      let ok=false, hit=null;
-      if(standard==="ERC721"){
-        const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC721,signer);
-        for(const id of TOKEN_IDS){
-          try{ const owner=await c.ownerOf(id);
-            if(owner && owner.toLowerCase()===account.toLowerCase()){ ok=true; hit=id; break; }
-          }catch(_){}
-        }
-      }else{
-        const c=new ethers.Contract(CONTRACT_ADDRESS,ABI_ERC1155,signer);
-        for(const id of TOKEN_IDS){
-          try{ const bal=await c.balanceOf(account,id);
-            if(bal && ethers.BigNumber.from(bal).gt(0)){ ok=true; hit=id; break; }
-          }catch(_){}
-        }
+    $unlockBtn.addEventListener("click", () => {
+      const val = ($pwd.value || "").trim();
+      if (val === PASSWORD) {
+        $error.classList.add("hidden");
+        $gated.classList.remove("hidden");
+      } else {
+        $error.classList.remove("hidden");
+        $gated.classList.add("hidden");
       }
-      sHit.textContent = hit ?? "–";
-      if(ok){ setStatus("ok","Unlocked"); locked.style.display="none"; secret.style.display="block"; }
-      else  { setStatus("bad","No access"); locked.style.display="block"; secret.style.display="none"; alert("❌ ต้องถือ Token ID 0–10"); }
-    }catch(err){ sErr.textContent=(err&&err.message)?err.message:String(err); setStatus("bad","Error"); alert("ตรวจสอบสิทธิ์ผิดพลาด"); }
-  }
+    });
 
-  // ปุ่ม Injected (MetaMask/Browser provider)
-  document.getElementById("btn-injected").addEventListener("click", async ()=>{
-    if(!window.ethereum){ alert("ไม่พบ provider ที่ถูก inject (ลอง Universal หรือเปิดด้วย MetaMask App)"); return; }
-    await verifyWithProvider(window.ethereum,"Injected");
-  });
+    $pwd.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") $unlockBtn.click();
+    });
 
-  // Universal: Injected -> WalletConnect -> Deeplink
-  const w3m=window.Web3ModalStandalone; let modal=null;
-  function ensureW3M(){ if(!modal){ modal=w3m.default({ projectId:WALLETCONNECT_PROJECT_ID, themeMode:"dark", walletConnectVersion:2 }); } return modal; }
-
-  document.getElementById("btn-universal").addEventListener("click", async ()=>{
-    if(window.ethereum){ await verifyWithProvider(window.ethereum,"Injected"); return; }
-    try{
-      const m=ensureW3M();
-      const provider=await m.connect();
-      await verifyWithProvider(provider,"WalletConnect");
-    }catch(e){
-      const isMobile=/android|iphone|ipad|ipod/i.test(navigator.userAgent);
-      if(isMobile){ location.href="https://metamask.app.link/dapp/"+currentUrl; }
-    }
-  });
-
-  // Auto-connect on load if injected exists (for in-app MetaMask browser)
-  window.addEventListener("load", ()=>{
-    if(window.ethereum){
-      // ไม่บังคับ popup ทันที แค่แสดงว่ามี provider
-      setStatus("warn","Provider detected – tap Connect");
-    }
-  });
-
-  // Clear UI
-  document.getElementById("btn-clear").addEventListener("click", ()=>{
-    sAddr.textContent="–"; sChain.textContent="–"; sStd.textContent="–";
-    sHit.textContent="–"; sErr.textContent="–"; setStatus("warn","Not connected");
-    locked.style.display="block"; secret.style.display="none";
-  });
-</script>
+    $langBtn.addEventListener("click", () => {
+      currentLang = currentLang === "th" ? "en" : "th";
+      renderLang();
+    });
+  </script>
 </body>
 </html>
