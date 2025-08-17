@@ -58,15 +58,21 @@
         <div class="hint">บนมือถือ แนะนำเปิดหน้านี้ผ่าน MetaMask App (Browser ในแอป) หรือใช้ปุ่ม WalletConnect</div>
       </div>
 
+      <!-- ✅ ลิงก์ไฟล์จะแสดง “หลังปลดล็อก” เท่านั้น -->
       <div id="unlocked" class="gate hidden">
         <strong class="ok">🎉 Unlocked</strong>
         <div class="hint">คุณถือ NFT จากคอลเลกชันนี้แล้ว — สามารถดาวน์โหลดไฟล์ได้</div>
         <div class="linkbox">
-          <!-- ปุ่มดาวน์โหลด: เลือกกดอันใดอันหนึ่งก็ได้ -->
-          <a class="btn" target="_blank" rel="noopener" href="https://ipfs.io/ipfs/bafybeic5vlbjz7g2ddyk7qzhb3lgrpvadxtxnixztxm26r2x4gsm3dzjwe">ดาวน์โหลดจาก ipfs.io</a>
-          <a class="btn" target="_blank" rel="noopener" href="https://cloudflare-ipfs.com/ipfs/bafybeic5vlbjz7g2ddyk7qzhb3lgrpvadxtxnixztxm26r2x4gsm3dzjwe">ดาวน์โหลดจาก cloudflare-ipfs</a>
+          <a class="btn" target="_blank" rel="noopener"
+             href="https://ipfs.io/ipfs/bafybeic5vlbjz7g2ddyk7qzhb3lgrpvadxtxnixztxm26r2x4gsm3dzjwe">
+             ดาวน์โหลดจาก ipfs.io
+          </a>
+          <a class="btn" target="_blank" rel="noopener"
+             href="https://cloudflare-ipfs.com/ipfs/bafybeic5vlbjz7g2ddyk7qzhb3lgrpvadxtxnixztxm26r2x4gsm3dzjwe">
+             ดาวน์โหลดจาก cloudflare-ipfs
+          </a>
         </div>
-        <div class="hint">แนะนำ: เวอร์ชันใช้งานจริงควรออก <em>one‑time download link</em> จาก backend เพื่อกันการแชร์ลิงก์</div>
+        <div class="hint">แนะนำ: โปรดักชันควรออก <em>one‑time download link</em> จาก backend เพื่อลดการแชร์ลิงก์</div>
       </div>
 
     </div>
@@ -77,7 +83,8 @@
     const CHAIN_ID_DEC = 137;                  // Polygon Mainnet
     const CHAIN_ID_HEX = "0x89";
     const COLLECTION_ERC721 = "0xefc87d60fc234d87286d41c5143b25c1abf38477";
-    const WC_PROJECT_ID = "ba3a040708c3e27acefb4eb4b3c5d9a8";
+    // WalletConnect Project ID (ตามที่ขอให้เปลี่ยน)
+    const WC_PROJECT_ID = "0x76f4E59DBBF99D025B6F1014D33843AB138e4085";
 
     // ABI ที่ต้องใช้ (ERC‑165 ตรวจมาตรฐาน + ERC‑721 balanceOf)
     const ABI = [
@@ -108,23 +115,16 @@
         // ถ้าไม่ได้ ก็ปล่อยไป (เช่น WalletConnect ถูกล็อก chains ไว้ตอน init)
       }
     }
-    function showLocked(){
-      elLocked.classList.remove("hidden");
-      elUnlocked.classList.add("hidden");
-    }
-    function showUnlocked(){
-      elLocked.classList.add("hidden");
-      elUnlocked.classList.remove("hidden");
-    }
+    function showLocked(){ elLocked.classList.remove("hidden"); elUnlocked.classList.add("hidden"); }
+    function showUnlocked(){ elLocked.classList.add("hidden"); elUnlocked.classList.remove("hidden"); }
 
     async function checkOwnership(provider){
-      // สร้าง ethers provider
       const web3 = new ethers.providers.Web3Provider(provider, "any");
       await ensureChain(web3);
       const signer = web3.getSigner();
       const addr = await signer.getAddress();
 
-      // ตรวจเชนปัจจุบัน
+      // ตรวจเครือข่าย
       const net = await web3.getNetwork();
       if (net.chainId !== CHAIN_ID_DEC){
         setStatus(`เชื่อมต่อกับ ${addr} แต่เครือข่ายไม่ใช่ Polygon (chainId=${net.chainId})`, false, true);
@@ -136,34 +136,33 @@
 
       const contract = new ethers.Contract(COLLECTION_ERC721, ABI, web3);
 
-      // (1) ตรวจ supportsInterface ของ ERC‑721 (ถ้าสัญญาไม่มีฟังก์ชันนี้จะ throw → จับไว้)
+      // (1) ตรวจว่ารองรับ ERC‑721 หรือไม่
       let isErc721 = false;
       try{
         isErc721 = await contract.supportsInterface(IERC721_ID);
       }catch(e){
-        // ถ้าไม่มี supportsInterface ก็ลองเดินต่อด้วย balanceOf แบบ ERC‑721
-        isErc721 = true; // optimistic, ค่อยจับ error ตอนเรียก balanceOf อีกที
+        // บางคอลเลกชันอาจไม่ implement ERC165 → ให้ลองเช็ค balanceOf แทน
+        isErc721 = true;
       }
-
       if (!isErc721){
         setStatus(`สัญญานี้ไม่ใช่ ERC‑721 (ไม่รองรับ 0x80ac58cd)`, false, true);
         showLocked();
         return;
       }
 
-      // (2) เรียก balanceOf(owner) — ถ้าเป็น ERC‑1155 จะ revert ที่ signature ไม่ตรง
+      // (2) เช็คยอดถือครอง
       try{
         const bal = await contract.balanceOf(addr);
         if (ethers.BigNumber.from(bal).gt(0)){
           setStatus(`ยืนยันสิทธิ์แล้ว: คุณถือ NFT จากคอลเลกชันนี้ ✅`, true, false);
-          showUnlocked();
+          showUnlocked(); // ← ลิงก์ไฟล์จะแสดงเฉพาะกรณีนี้
         }else{
           setStatus(`คุณไม่ได้ถือ NFT จากคอลเลกชันนี้ ❌`, false, true);
           showLocked();
         }
       }catch(e){
         console.error(e);
-        setStatus(`สัญญานี้ไม่รองรับรูปแบบ ERC‑721 (balanceOf(owner)) — ถูกล็อกไว้เฉพาะ ERC‑721 เท่านั้น`, false, true);
+        setStatus(`สัญญานี้ไม่รองรับรูปแบบ ERC‑721 (balanceOf(owner)) — หน้านี้ล็อกเฉพาะ ERC‑721 เท่านั้น`, false, true);
         showLocked();
       }
     }
@@ -186,7 +185,6 @@
 
     $("connectWC").addEventListener("click", async()=>{
       try{
-        // สร้าง WalletConnect Provider (v2)
         const wc = await window.WalletConnectEthereumProvider.init({
           projectId: WC_PROJECT_ID,
           chains: [CHAIN_ID_DEC],
@@ -198,8 +196,7 @@
           ],
           rpcMap: { [CHAIN_ID_DEC]: "https://polygon-rpc.com" }
         });
-        await wc.enable(); // แสดง QR ให้สแกน/เชื่อมต่อ
-
+        await wc.enable();
         await checkOwnership(wc);
       }catch(e){
         console.error(e);
